@@ -1,5 +1,5 @@
--- EightQueens.hs
-module EightQueens where
+-- NQueens.hs
+module NQueens where
 
 import Control.Monad(forM, when, unless)
 import System.Random(StdGen, randomRs, newStdGen)
@@ -46,7 +46,7 @@ main = do
 randomRestart :: [Board] -> IO ()
 randomRestart bs = do
           handles <- mapM getBoardTrailHandle (map boardName bs)
-          (boards, restarts) <- mapM restartingHillClimbWithFileTrail (zip handles bs)
+          restarts <- mapM (restartingHillClimbWithFileTrail 0) (zip handles bs)
           mapM_ hClose handles
           putStrLn $ "Total iterations: " ++ show (length bs)
           putStrLn $ "Average Restarts: " ++ show restarts
@@ -164,18 +164,18 @@ hillClimbWithFileTrail (h, b)
       writeMove h b
       hillClimbWithFileTrail (h, makeMove b)
 
-restartingHillClimbWithFileTrail :: (Handle, Board) -> Int -> IO (Board, Int)
-restartingHillClimbWithFileTrail (h, b) restarts
-  | isGoalState b = do
+restartingHillClimbWithFileTrail :: Int -> (Handle, Board) -> IO Int
+restartingHillClimbWithFileTrail restarts (h, b) = undefined
+{--  | isGoalState b = do
       writeBoard h b
-      return (b, restarts)
-  | atMaximum b = do
-      writeBoard h b
-
+      return restarts
+  -- | atMaximum b = do
+  --     writeBoard h b
+  -- pick new value
   | otherwise   = do
       writeMove h b
-      restartingHillClimbWithFileTrail (h, makeMove b) restarts
-
+      restartingHillClimbWithFileTrail restarts (h, makeMove b)
+--}
 
 printBoard = putStrLn . boardString
 writeBoard h = (hPutStrLn h) . boardString
