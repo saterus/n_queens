@@ -1,11 +1,11 @@
 -- EightQueens.hs
 module EightQueens where
 
-import Control.Monad(forM)
+import Control.Monad(forM, when)
 import System.Random(StdGen, randomRs, newStdGen)
 import Data.List(intersperse, deleteBy, minimum, sort)
-
-numTrials = 5 -- 50
+import System.Environment(getArgs)
+import System.Exit(exitFailure, exitSuccess)
 
 -- 1 queen per column, with the value representing the row
 type Column = (Int, Int)
@@ -23,13 +23,33 @@ maxColumn = boardSize - 1
 possibleMoves :: [Column]
 possibleMoves = let rowValues = [minRow..maxRow]
                 in [(x,y) | x <- rowValues, y <- rowValues]
+
+randomRestartModes = ["rr", "randomRestart"]
+noRestartModes = ["nr", "noRestart"]
+trials = 100
+
 main = do
-  boards <- forM [0..numTrials] $ \a -> do
+  (mode:_) <- getArgs
+  boards <- forM [0..trials] $ \a -> do
     gen <- newStdGen
     let board = genRandomBoard gen
     return board
-  mapM_ (putStrLn . boardString) boards
-  return boards
+  when (mode `elem` randomRestartModes)
+    randomRestart boards
+  when (mode `elem` noRestartModes)
+    noRestart boards
+  exitFailure
+
+randomRestart :: [Board] -> IO ()
+randomRestart bs = undefined
+
+noRestart :: [Board] -> IO ()
+noRestart bs = do
+          let stuck = filter (isGoalState . hillClimb) bs
+          putStrLn "Total iterations: " ++ show (length bs)
+          putStrLn "Successful iterations: " ++ show $ (length bs) - (length stuck)
+          putStrLn "Unsuccessful iterations: " ++ show $ (length stuck)
+          exitSuccess
 
 genRandomBoard :: StdGen -> Board
 genRandomBoard gen = zip [0..] $ take boardSize $ randomRs (minRow, maxRow) gen
