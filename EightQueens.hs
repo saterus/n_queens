@@ -6,6 +6,7 @@ import System.Random(StdGen, randomRs, newStdGen)
 import Data.List(intersperse, deleteBy, minimum, sort)
 import System.Environment(getArgs)
 import System.Exit(exitFailure, exitSuccess)
+import System.IO(Handle, IOMode(WriteMode), hPutStrLn, hClose, openFile)
 
 -- 1 queen per column, with the value representing the row
 type Column = (Int, Int)
@@ -30,26 +31,42 @@ trials = 100
 
 main = do
   (mode:_) <- getArgs
-  boards <- forM [0..trials] $ \a -> do
-    gen <- newStdGen
-    let board = genRandomBoard gen
-    return board
-  when (mode `elem` randomRestartModes)
-    randomRestart boards
-  when (mode `elem` noRestartModes)
+  boards <- genRandomBoards trials
+
+  -- when (mode `elem` randomRestartModes)
+  --   randomRestart boards
+  if (mode `elem` noRestartModes) then
     noRestart boards
-  exitFailure
+  else
+    exitFailure
 
 randomRestart :: [Board] -> IO ()
 randomRestart bs = undefined
 
 noRestart :: [Board] -> IO ()
 noRestart bs = do
-          let stuck = filter (isGoalState . hillClimb) bs
-          putStrLn "Total iterations: " ++ show (length bs)
-          putStrLn "Successful iterations: " ++ show $ (length bs) - (length stuck)
-          putStrLn "Unsuccessful iterations: " ++ show $ (length stuck)
+          handles <- mapM getBoardTrailHandle (map boardName bs)
+          boards <- mapM hillClimbWithFileTrail (zip handles bs)
+          mapM_ hClose handles
+          let success = filter isGoalState boards
+          putStrLn $ "Total iterations: " ++ show (length bs)
+          putStrLn $ "Successful iterations: " ++ show (length success)
+          putStrLn $ "Unsuccessful iterations: " ++ show ( (length bs) - (length success))
           exitSuccess
+
+
+getBoardTrailHandle :: String -> IO Handle
+getBoardTrailHandle fileName = openFile (fileName ++ ".nqueens" ) WriteMode
+
+boardName :: Board -> String
+boardName = (concatMap (show . snd)) . sort
+
+genRandomBoards :: Int -> IO [Board]
+genRandomBoards numTrials = do
+                forM [0..numTrials] $ \a -> do
+                    gen <- newStdGen
+                    let board = genRandomBoard gen
+                    return board
 
 genRandomBoard :: StdGen -> Board
 genRandomBoard gen = zip [0..] $ take boardSize $ randomRs (minRow, maxRow) gen
@@ -131,11 +148,23 @@ hillClimbWithTrail b
       printMove b
       hillClimbWithTrail $ makeMove b
 
+hillClimbWithFileTrail :: (Handle, Board) -> IO Board
+hillClimbWithFileTrail (h, b)
+  | atMaximum b = do
+      writeBoard h b
+      return b
+  | otherwise   = do
+      writeMove h b
+      hillClimbWithFileTrail (h, makeMove b)
+
+
 printBoard = putStrLn . boardString
+writeBoard h = (hPutStrLn h) . boardString
 
 printCostPairs b = mapM_ (putStrLn . show) ((sort . costColumnPairs) b)
 
 printMove b =  printBoard b >> putStrLn ("Best Move " ++ (show (findBestMove b)))
+writeMove h b =  writeBoard h b >> hPutStrLn h ("Best Move " ++ (show (findBestMove b)))
 
 -- To simply things, the board is printed with columns going left to right.
 boardString :: Board -> String
