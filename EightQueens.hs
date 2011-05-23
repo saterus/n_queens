@@ -1,7 +1,7 @@
 -- EightQueens.hs
 module EightQueens where
 
-import Control.Monad(forM, when)
+import Control.Monad(forM, when, unless)
 import System.Random(StdGen, randomRs, newStdGen)
 import Data.List(intersperse, deleteBy, minimum, sort)
 import System.Environment(getArgs)
@@ -33,15 +33,23 @@ main = do
   (mode:_) <- getArgs
   boards <- genRandomBoards trials
 
-  -- when (mode `elem` randomRestartModes)
-  --   randomRestart boards
+  unless (mode `elem` (randomRestartModes ++ noRestartModes))
+    exitFailure
+
   if (mode `elem` noRestartModes) then
     noRestart boards
   else
-    exitFailure
+    randomRestart boards
+
+
 
 randomRestart :: [Board] -> IO ()
-randomRestart bs = undefined
+randomRestart bs = do
+          handles <- mapM getBoardTrailHandle (map boardName bs)
+          (boards, restarts) <- mapM restartingHillClimbWithFileTrail (zip handles bs)
+          mapM_ hClose handles
+          putStrLn $ "Total iterations: " ++ show (length bs)
+          putStrLn $ "Average Restarts: " ++ show restarts
 
 noRestart :: [Board] -> IO ()
 noRestart bs = do
@@ -51,8 +59,7 @@ noRestart bs = do
           let success = filter isGoalState boards
           putStrLn $ "Total iterations: " ++ show (length bs)
           putStrLn $ "Successful iterations: " ++ show (length success)
-          putStrLn $ "Unsuccessful iterations: " ++ show ( (length bs) - (length success))
-          exitSuccess
+          putStrLn $ "Iterations stuck at local maxima: " ++ show ( (length bs) - (length success))
 
 
 getBoardTrailHandle :: String -> IO Handle
@@ -156,6 +163,18 @@ hillClimbWithFileTrail (h, b)
   | otherwise   = do
       writeMove h b
       hillClimbWithFileTrail (h, makeMove b)
+
+restartingHillClimbWithFileTrail :: (Handle, Board) -> Int -> IO (Board, Int)
+restartingHillClimbWithFileTrail (h, b) restarts
+  | isGoalState b = do
+      writeBoard h b
+      return (b, restarts)
+  | atMaximum b = do
+      writeBoard h b
+
+  | otherwise   = do
+      writeMove h b
+      restartingHillClimbWithFileTrail (h, makeMove b) restarts
 
 
 printBoard = putStrLn . boardString
