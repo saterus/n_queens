@@ -1,5 +1,4 @@
 -- NQueens.hs
-module NQueens where
 
 import Control.Monad(forM, when, unless)
 import System.Random(StdGen, randomRs, newStdGen)
@@ -11,7 +10,6 @@ import System.IO(Handle, IOMode(WriteMode), hPutStrLn, hClose, openFile)
 -- 1 queen per column, with the value representing the row
 type Column = (Int, Int)
 type Board = [Column]
-type Solution = [Int]
 
 -- board parameters
 boardSize, minRow, maxRow, minColumn, maxColumn :: Int
@@ -27,11 +25,11 @@ possibleMoves = let rowValues = [minRow..maxRow]
 
 randomRestartModes = ["rr", "randomRestart"]
 noRestartModes = ["nr", "noRestart"]
-trials = 100
+
 
 main = do
-  (mode:_) <- getArgs
-  boards <- genRandomBoards trials
+  (mode:trials:_) <- getArgs
+  boards <- genRandomBoards (read trials)
 
   unless (mode `elem` (randomRestartModes ++ noRestartModes))
     exitFailure
@@ -49,9 +47,10 @@ randomRestart bs = do
           restarts <- mapM (restartingHillClimbWithFileTrail 0) (zip handles bs)
           mapM_ hClose handles
           putStrLn $ "Total iterations: " ++ show (length bs)
-          putStrLn $ "Average Restarts: " ++ show restarts
+          putStrLn $ "Restart Counts: " ++ show (restarts)
+          putStrLn $ "Average Restarts: " ++ show ( (fromIntegral (sum restarts)) / (fromIntegral (length bs)) )
 
-noRestart :: [Board] -> IO ()
+noRestart :: [Board] -> IO () 
 noRestart bs = do
           handles <- mapM getBoardTrailHandle (map boardName bs)
           boards <- mapM hillClimbWithFileTrail (zip handles bs)
@@ -61,7 +60,6 @@ noRestart bs = do
           putStrLn $ "Successful iterations: " ++ show (length success)
           putStrLn $ "Iterations stuck at local maxima: " ++ show ( (length bs) - (length success))
 
-
 getBoardTrailHandle :: String -> IO Handle
 getBoardTrailHandle fileName = openFile (fileName ++ ".nqueens" ) WriteMode
 
@@ -70,7 +68,7 @@ boardName = (concatMap (show . snd)) . sort
 
 genRandomBoards :: Int -> IO [Board]
 genRandomBoards numTrials = do
-                forM [0..numTrials] $ \a -> do
+                forM [1..numTrials] $ \a -> do
                     gen <- newStdGen
                     let board = genRandomBoard gen
                     return board
@@ -144,7 +142,7 @@ atMaximum b = (isGoalState b) || (onShoulder b)
 hillClimb :: Board -> Board
 hillClimb b
   | atMaximum b = b
-  | otherwise   = hillClimb $ makeMove b
+  | otherwise   = hillClimb (makeMove b)
 
 hillClimbWithTrail :: Board -> IO Board
 hillClimbWithTrail b
@@ -165,17 +163,19 @@ hillClimbWithFileTrail (h, b)
       hillClimbWithFileTrail (h, makeMove b)
 
 restartingHillClimbWithFileTrail :: Int -> (Handle, Board) -> IO Int
-restartingHillClimbWithFileTrail restarts (h, b) = undefined
-{--  | isGoalState b = do
+restartingHillClimbWithFileTrail restarts (h, b)
+  | isGoalState b = do
       writeBoard h b
       return restarts
-  -- | atMaximum b = do
-  --     writeBoard h b
-  -- pick new value
+  | atMaximum b = do
+      writeBoard h b
+      hPutStrLn h "At Local Maxima. Restarting."
+      gen <- newStdGen
+      restartingHillClimbWithFileTrail (restarts + 1) (h, genRandomBoard gen)
   | otherwise   = do
       writeMove h b
       restartingHillClimbWithFileTrail restarts (h, makeMove b)
---}
+
 
 printBoard = putStrLn . boardString
 writeBoard h = (hPutStrLn h) . boardString
