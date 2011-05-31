@@ -1,0 +1,14 @@
+To compile, run "ghc -o NQueens -O3 NQueens.hs".
+
+To run:
+
+./NQueens (rr/nr) (num_trials)
+
+rr => Random Restart Mode
+nr => No Restart Mode
+
+
+.nqueens files produced should show the path taken from a particular start state.
+They are just ascii text files. The name of the file is the original start state.
+
+You can modify the NQueens.hs file to increase the board size in order to solve larger chess boards.
